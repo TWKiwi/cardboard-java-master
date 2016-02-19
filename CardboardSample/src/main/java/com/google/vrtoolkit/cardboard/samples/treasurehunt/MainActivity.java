@@ -63,8 +63,6 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
   private static final float MIN_MODEL_DISTANCE = 3.0f;
   private static final float MAX_MODEL_DISTANCE = 7.0f;
 
-  private static final String SOUND_FILE = "cube_sound.wav";
-
   private final float[] lightPosInEyeSpace = new float[4];
 
   private FloatBuffer floorVertices;
@@ -391,13 +389,12 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
 
   /**
    * 實作 onDrawEye() 以執行個別眼睛的設定。
-
-   * 這是呈現程式碼的核心，而且與建置一般 OpenGL ES2 應用程式非常類似。
-   * 下列程式碼片段說明如何取得檢視轉換矩陣，以及透視轉換矩陣。
-   * 您必須確定您的轉譯器具有低延遲。
+   * 這是呈現程式碼的核心，而且與建置一般 OpenGL ES 2.0 應用程式非常類似。
+   * 下列程式碼包含如何取得檢視轉換矩陣，以及透視轉換矩陣。
+   * 必須確定轉譯器具有低延遲。
    * Eye 物件包含眼睛的轉換與投影矩陣。
    * 這是下列事件的順序：
-
+   *
    * 寶物出現在眼睛可視空間。
    * 我們套用投影矩陣。
    * 這提供針對特定眼睛轉譯的場景。
