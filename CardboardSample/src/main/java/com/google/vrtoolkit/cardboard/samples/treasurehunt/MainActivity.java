@@ -167,13 +167,13 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
   @Override
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-
+//==================定義CardboardView==================//
     setContentView(R.layout.common_ui);
     CardboardView cardboardView = (CardboardView) findViewById(R.id.cardboard_view);
     cardboardView.setRestoreGLStateEnabled(false);
     cardboardView.setRenderer(this);
     setCardboardView(cardboardView);
-
+//==================定義CardboardView==================//
     modelCube = new float[16];
     camera = new float[16];
     view = new float[16];
@@ -186,10 +186,10 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
     headView = new float[16];
     vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
-    overlayView = (CardboardOverlayView) findViewById(R.id.overlay);
-    overlayView.show3DToast("Pull the magnet when you find an object.");
+//    overlayView = (CardboardOverlayView) findViewById(R.id.overlay);
+//    overlayView.show3DToast("Pull the magnet when you find an object.");
 
-    // Initialize 3D audio engine.
+    // 初始化3D引擎
     cardboardAudioEngine =
         new CardboardAudioEngine(getAssets(), CardboardAudioEngine.RenderingQuality.HIGH);
   }
@@ -230,9 +230,9 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
     GLES20.glClearColor(0.1f, 0.1f, 0.1f, 0.5f); // Dark background so text shows up well.
 
     ByteBuffer bbVertices = ByteBuffer.allocateDirect(WorldLayoutData.CUBE_COORDS.length * 4);
-    bbVertices.order(ByteOrder.nativeOrder());
+    bbVertices.order(ByteOrder.nativeOrder());// 設定字節排序，獲取本機字節排序
     cubeVertices = bbVertices.asFloatBuffer();
-    cubeVertices.put(WorldLayoutData.CUBE_COORDS);
+    cubeVertices.put(WorldLayoutData.CUBE_COORDS);// 放入WorldLayoutData的CUBE_COORDS座標陣列
     cubeVertices.position(0);
 
     ByteBuffer bbColors = ByteBuffer.allocateDirect(WorldLayoutData.CUBE_COLORS.length * 4);
@@ -240,13 +240,6 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
     cubeColors = bbColors.asFloatBuffer();
     cubeColors.put(WorldLayoutData.CUBE_COLORS);
     cubeColors.position(0);
-
-    ByteBuffer bbFoundColors =
-        ByteBuffer.allocateDirect(WorldLayoutData.CUBE_FOUND_COLORS.length * 4);
-    bbFoundColors.order(ByteOrder.nativeOrder());
-    cubeFoundColors = bbFoundColors.asFloatBuffer();
-    cubeFoundColors.put(WorldLayoutData.CUBE_FOUND_COLORS);
-    cubeFoundColors.position(0);
 
     ByteBuffer bbNormals = ByteBuffer.allocateDirect(WorldLayoutData.CUBE_NORMALS.length * 4);
     bbNormals.order(ByteOrder.nativeOrder());
@@ -289,7 +282,7 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
     cubeNormalParam = GLES20.glGetAttribLocation(cubeProgram, "a_Normal");
     cubeColorParam = GLES20.glGetAttribLocation(cubeProgram, "a_Color");
 
-    cubeModelParam = GLES20.glGetUniformLocation(cubeProgram, "u_Model");
+    cubeModelParam = GLES20.glGetUniformLocation(cubeProgram, "u_Model");// 取得uniform變量的索引值
     cubeModelViewParam = GLES20.glGetUniformLocation(cubeProgram, "u_MVMatrix");
     cubeModelViewProjectionParam = GLES20.glGetUniformLocation(cubeProgram, "u_MVP");
     cubeLightPosParam = GLES20.glGetUniformLocation(cubeProgram, "u_LightPos");
@@ -326,21 +319,6 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
     Matrix.setIdentityM(modelFloor, 0);
     Matrix.translateM(modelFloor, 0, 0, -floorDepth, 0); // Floor appears below user.
 
-    // Avoid any delays during start-up due to decoding of sound files.
-    new Thread(
-            new Runnable() {
-              public void run() {
-                // Start spatial audio playback of SOUND_FILE at the model postion. The returned
-                //soundId handle is stored and allows for repositioning the sound object whenever
-                // the cube position changes.
-                cardboardAudioEngine.preloadSoundFile(SOUND_FILE);
-                soundId = cardboardAudioEngine.createSoundObject(SOUND_FILE);
-                cardboardAudioEngine.setSoundObjectPosition(
-                    soundId, modelPosition[0], modelPosition[1], modelPosition[2]);
-                cardboardAudioEngine.playSound(soundId, true /* looped playback */);
-              }
-            })
-        .start();
 
     updateModelPosition();
 
@@ -387,7 +365,9 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
 
   /**
    * Prepares OpenGL ES before we draw a frame.
-   *
+   * 針對每隻眼睛轉譯內容時，先使用 onNewFrame() 方法將轉譯邏輯編碼。
+   * 任何不是特別針對單一檢視進行的個別畫面操作，都應該在這裡執行。
+   * 這是更新模型的好地方。
    * @param headTransform The head transformation in the new frame.
    */
   @Override
@@ -398,7 +378,8 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
     // Build the camera matrix and apply it to the ModelView.
     Matrix.setLookAtM(camera, 0, 0.0f, 0.0f, CAMERA_Z, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
-    headTransform.getHeadView(headView, 0);
+    headTransform.getHeadView(headView, 0); // mHeadView 包含頭部的位置。
+                                            // 此值需要儲存以供後續使用，以判斷使用者是否在看著寶物
 
     // Update the 3d audio engine with the most recent head rotation.
     headTransform.getQuaternion(headRotation, 0);
@@ -409,8 +390,19 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
   }
 
   /**
-   * Draws a frame for an eye.
+   * 實作 onDrawEye() 以執行個別眼睛的設定。
+
+   * 這是呈現程式碼的核心，而且與建置一般 OpenGL ES2 應用程式非常類似。
+   * 下列程式碼片段說明如何取得檢視轉換矩陣，以及透視轉換矩陣。
+   * 您必須確定您的轉譯器具有低延遲。
+   * Eye 物件包含眼睛的轉換與投影矩陣。
+   * 這是下列事件的順序：
+
+   * 寶物出現在眼睛可視空間。
+   * 我們套用投影矩陣。
+   * 這提供針對特定眼睛轉譯的場景。
    *
+   * Cardboard SDK 會自動套用變形，以轉譯最終場景。
    * @param eye The eye to render. Includes all required transformations.
    */
   @Override
@@ -420,11 +412,9 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
 
     checkGLError("colorParam");
 
-    // Apply the eye transformation to the camera.
-    Matrix.multiplyMM(view, 0, eye.getEyeView(), 0, camera, 0);
+    Matrix.multiplyMM(view, 0, eye.getEyeView(), 0, camera, 0);//把旋轉矩陣合併到投影和相機矩陣，矩陣相乘
 
-    // Set the position of the light
-    Matrix.multiplyMV(lightPosInEyeSpace, 0, view, 0, LIGHT_POS_IN_WORLD_SPACE, 0);
+    Matrix.multiplyMV(lightPosInEyeSpace, 0, view, 0, LIGHT_POS_IN_WORLD_SPACE, 0);//設定光源位置
 
     // Build the ModelView and ModelViewProjection matrices
     // for calculating cube position and light.
@@ -452,7 +442,7 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
 
     GLES20.glUniform3fv(cubeLightPosParam, 1, lightPosInEyeSpace, 0);
 
-    // Set the Model in the shader, used to calculate lighting
+    // 將模型置入著色器，用於計算照明
     GLES20.glUniformMatrix4fv(cubeModelParam, 1, false, modelCube, 0);
 
     // Set the ModelView in the shader, used to calculate lighting
@@ -467,8 +457,7 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
 
     // Set the normal positions of the cube, again for shading
     GLES20.glVertexAttribPointer(cubeNormalParam, 3, GLES20.GL_FLOAT, false, 0, cubeNormals);
-    GLES20.glVertexAttribPointer(cubeColorParam, 4, GLES20.GL_FLOAT, false, 0,
-        isLookingAtObject() ? cubeFoundColors : cubeColors);
+    GLES20.glVertexAttribPointer(cubeColorParam, 4, GLES20.GL_FLOAT, false, 0, cubeColors);
 
     GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 36);
     checkGLError("Drawing cube");
@@ -499,72 +488,4 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
     checkGLError("drawing floor");
   }
 
-  /**
-   * Called when the Cardboard trigger is pulled.
-   */
-  @Override
-  public void onCardboardTrigger() {
-    Log.i(TAG, "onCardboardTrigger");
-
-    if (isLookingAtObject()) {
-      score++;
-      overlayView.show3DToast("Found it! Look around for another one.\nScore = " + score);
-      hideObject();
-    } else {
-      overlayView.show3DToast("Look around to find the object!");
-    }
-
-    // Always give user feedback.
-    vibrator.vibrate(50);
-  }
-
-  /**
-   * Find a new random position for the object.
-   *
-   * <p>We'll rotate it around the Y-axis so it's out of sight, and then up or down by a little bit.
-   */
-  private void hideObject() {
-    float[] rotationMatrix = new float[16];
-    float[] posVec = new float[4];
-
-    // First rotate in XZ plane, between 90 and 270 deg away, and scale so that we vary
-    // the object's distance from the user.
-    float angleXZ = (float) Math.random() * 180 + 90;
-    Matrix.setRotateM(rotationMatrix, 0, angleXZ, 0f, 1f, 0f);
-    float oldObjectDistance = objectDistance;
-    objectDistance =
-        (float) Math.random() * (MAX_MODEL_DISTANCE - MIN_MODEL_DISTANCE) + MIN_MODEL_DISTANCE;
-    float objectScalingFactor = objectDistance / oldObjectDistance;
-    Matrix.scaleM(rotationMatrix, 0, objectScalingFactor, objectScalingFactor, objectScalingFactor);
-    Matrix.multiplyMV(posVec, 0, rotationMatrix, 0, modelCube, 12);
-
-    float angleY = (float) Math.random() * 80 - 40; // Angle in Y plane, between -40 and 40.
-    angleY = (float) Math.toRadians(angleY);
-    float newY = (float) Math.tan(angleY) * objectDistance;
-
-    modelPosition[0] = posVec[0];
-    modelPosition[1] = newY;
-    modelPosition[2] = posVec[2];
-
-    updateModelPosition();
-  }
-
-  /**
-   * Check if user is looking at object by calculating where the object is in eye-space.
-   *
-   * @return true if the user is looking at the object.
-   */
-  private boolean isLookingAtObject() {
-    float[] initVec = {0, 0, 0, 1.0f};
-    float[] objPositionVec = new float[4];
-
-    // Convert object space to camera space. Use the headView from onNewFrame.
-    Matrix.multiplyMM(modelView, 0, headView, 0, modelCube, 0);
-    Matrix.multiplyMV(objPositionVec, 0, modelView, 0, initVec, 0);
-
-    float pitch = (float) Math.atan2(objPositionVec[1], -objPositionVec[2]);
-    float yaw = (float) Math.atan2(objPositionVec[0], -objPositionVec[2]);
-
-    return Math.abs(pitch) < PITCH_LIMIT && Math.abs(yaw) < YAW_LIMIT;
-  }
 }

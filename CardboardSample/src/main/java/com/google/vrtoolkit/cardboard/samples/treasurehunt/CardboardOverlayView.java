@@ -63,36 +63,9 @@ public class CardboardOverlayView extends LinearLayout {
     textFadeAnimation.setDuration(5000);
   }
 
-  public void show3DToast(String message) {
-    setText(message);
-    setTextAlpha(1f);
-    textFadeAnimation.setAnimationListener(new EndAnimationListener() {
-      @Override
-      public void onAnimationEnd(Animation animation) {
-        setTextAlpha(0f);
-      }
-    });
-    startAnimation(textFadeAnimation);
-  }
-
-  private abstract class EndAnimationListener implements Animation.AnimationListener {
-    @Override public void onAnimationRepeat(Animation animation) {}
-    @Override public void onAnimationStart(Animation animation) {}
-  }
-
   private void setDepthOffset(float offset) {
     leftView.setOffset(offset);
     rightView.setOffset(-offset);
-  }
-
-  private void setText(String text) {
-    leftView.setText(text);
-    rightView.setText(text);
-  }
-
-  private void setTextAlpha(float alpha) {
-    leftView.setTextViewAlpha(alpha);
-    rightView.setTextViewAlpha(alpha);
   }
 
   private void setColor(int color) {
@@ -129,14 +102,6 @@ public class CardboardOverlayView extends LinearLayout {
     public void setColor(int color) {
       imageView.setColorFilter(color);
       textView.setTextColor(color);
-    }
-
-    public void setText(String text) {
-      textView.setText(text);
-    }
-
-    public void setTextViewAlpha(float alpha) {
-      textView.setAlpha(alpha);
     }
 
     public void setOffset(float offset) {
