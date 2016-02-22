@@ -377,7 +377,7 @@ public class MainActivity extends CardboardActivity implements CardboardView.Ste
     Matrix.setLookAtM(camera, 0, 0.0f, 0.0f, CAMERA_Z, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
     headTransform.getHeadView(headView, 0); // mHeadView 包含頭部的位置。
-                                            // 此值需要儲存以供後續使用，以判斷使用者是否在看著寶物
+                                            // 此值需要儲存以供後續使用，以判斷使用者是否在看著物件
 
     // Update the 3d audio engine with the most recent head rotation.
     headTransform.getQuaternion(headRotation, 0);
